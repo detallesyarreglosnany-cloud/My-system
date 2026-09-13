@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx create-next-app*)",
+      "Bash(npx shadcn*)",
+      "Bash(npx shadcn@latest*)",
+      "Bash(npm install*)",
+      "Bash(npm run*)",
+      "Bash(npm exec*)",
+      "Bash(npx vercel*)",
+      "Bash(npx vercel login*)",
+      "Bash(npx next*)",
+      "Bash(npx @midscene*)",
+      "Bash(bash .claude/skills*)",
+      "Bash(bash*deploy*)",
+      "Bash(playwright-cli:*)",
+      "Bash(python3*search.py*)",
+      "Bash(ls*)",
+      "Bash(node*)",
+      "Bash(git*)",
+      "Bash(cd*)",
+      "Bash(cat*)",
+      "Bash(find*)",
+      "Bash(grep*)",
+      "Bash(mkdir*)",
+      "Bash(rm*)",
+      "Bash(mv*)",
+      "Bash(cp*)",
+      "Bash(curl*)",
+      "Bash(tar*)",
+      "Bash(which*)",
+      "Bash(command*)",
+      "Bash(echo*)",
+      "Bash(touch*)",
+      "Bash(open*)",
+      "Bash(chmod*)",
+      "Bash(wc*)",
+      "WebSearch",
+      "WebFetch"
+    ]
+  }
+}
