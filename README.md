@@ -185,10 +185,37 @@ variables en el proyecto de Vercel:
 | `DATABASE_SSL` | `no-verify` |
 | `DB_POOL_MAX` | `3` |
 | `JWT_SECRET` | 64 caracteres aleatorios |
-| `SEED_DIAS` | `20`, para que el build no tarde |
+| `SEED_DIAS` | `7`. El seed hace muchas idas y vueltas por venta, y contra una base remota avanza unas 2 ventas por minuto |
 
 El comando de build (`npm run vercel-build`) compila la API, aplica las
 migraciones, carga el seed si la base está vacía y compila el frontend.
+
+### Compartir una base con otros proyectos
+
+Si la base que vas a usar ya aloja otra aplicación, conviene que Fina viva en su
+propio esquema en vez de en `public`. Crea un rol dedicado, dale un esquema
+propio y fija su `search_path`:
+
+```sql
+CREATE ROLE fina_app LOGIN PASSWORD 'una-clave-larga-y-aleatoria';
+GRANT fina_app TO CURRENT_USER;              -- requisito de PostgreSQL 16+
+CREATE SCHEMA fina AUTHORIZATION fina_app;
+ALTER ROLE fina_app SET search_path = fina;  -- se aplica en cada conexión
+```
+
+Luego apunta `DATABASE_URL` a ese rol. La aplicación no califica los nombres de
+tabla, así que **el `search_path` del rol es lo que la mantiene dentro de su
+esquema**. Si ese ajuste se pierde, la aplicación escribiría en `public`.
+
+Para comprobarlo en cualquier momento, `GET /api/salud` devuelve el esquema
+activo:
+
+```json
+{ "ok": true, "esquema": "fina", "postgres": "PostgreSQL 17.6" }
+```
+
+Si ahí aparece `public` cuando esperabas otro esquema, vuelve a ejecutar el
+`ALTER ROLE` antes de cargar datos.
 
 Ten presente que un despliegue en Vercel deja la aplicación en internet. Para
 tus datos reales, usa el despliegue con Docker descrito arriba.
