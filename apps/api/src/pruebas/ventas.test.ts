@@ -234,3 +234,45 @@ describe('correlativos', () => {
     assert.match(numeros.rows[0].numero, /^F-\d{6}$/);
   });
 });
+
+describe('costo promedio ponderado', () => {
+  it('no acumula error al encadenar compras (ADR-03: la aritmetica va en numeric)', async () => {
+    const prod = await uno<{ id: number }>(
+      `INSERT INTO producto (sku, nombre, tipo, precio_usd, costo_usd, iva_tasa)
+       VALUES ('P-COSTO','Producto de costeo','BIEN',20,0,16) RETURNING id`,
+    );
+    const prov = await uno<{ id: number }>('SELECT id FROM proveedor LIMIT 1');
+
+    // 60 compras con costos de 4 decimales: el caso que degradaba el promedio.
+    const compras = Array.from({ length: 60 }, (_, i) => ({
+      cantidad: 100 + i,
+      costoUsd: Number((3 + (i % 7) * 0.1337).toFixed(4)),
+    }));
+    for (const c of compras) {
+      await crearCompra(
+        {
+          sucursalId,
+          proveedorId: prov!.id,
+          condicion: 'CREDITO',
+          diasCredito: 30,
+          lineas: [{ productoId: prod!.id, cantidad: c.cantidad, costoUsd: c.costoUsd }],
+        },
+        sesion,
+      );
+    }
+
+    const esperado = await uno<{ v: number }>(
+      `SELECT round(SUM(cl.cantidad * cl.costo_usd) / SUM(cl.cantidad), 4) AS v
+         FROM compra_linea cl WHERE cl.producto_id = $1`,
+      [prod!.id],
+    );
+    const real = await uno<{ costo_usd: number }>('SELECT costo_usd FROM producto WHERE id = $1', [prod!.id]);
+
+    // Todas las compras entran sobre existencia cero inicial, asi que el
+    // promedio ponderado debe coincidir con el promedio global exacto.
+    assert.ok(
+      Math.abs(Number(real!.costo_usd) - Number(esperado!.v)) < 0.0002,
+      `costo ${real!.costo_usd} se alejo de ${esperado!.v}`,
+    );
+  });
+});

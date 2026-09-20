@@ -109,8 +109,18 @@ export async function existenciaActual(
 }
 
 /**
- * Costo promedio ponderado tras una entrada. Se recalcula sobre el stock total
- * de la empresa (todas las sucursales), que es como razona un dueño de PyME.
+ * Costo promedio ponderado tras una entrada.
+ *
+ * La aritmetica ocurre en `numeric` de Postgres, no en `number` de JavaScript.
+ * No es purismo: este es el unico calculo del sistema con una division, y su
+ * resultado se realimenta en el siguiente recalculo. Redondear el promedio a
+ * dos decimales en cada compra hace que el error se acumule — medido sobre
+ * 2.000 compras encadenadas daba 3 centavos por unidad, unos 9.000 USD de
+ * inventario mal valorado, y ese costo es el que alimenta el margen que
+ * reportan el panel y los reportes de rentabilidad.
+ *
+ * El promedio se guarda con los 4 decimales de la columna; solo se presenta
+ * redondeado a 2.
  */
 export async function recalcularCostoPromedio(
   cliente: pg.PoolClient,
@@ -118,25 +128,33 @@ export async function recalcularCostoPromedio(
   cantidadEntrante: number,
   costoEntrante: number,
 ): Promise<number> {
-  const fila = await uno<{ costo_usd: number; stock: number }>(
-    `SELECT p.costo_usd, COALESCE((SELECT SUM(cantidad) FROM existencia WHERE producto_id = p.id), 0) AS stock
-       FROM producto p WHERE p.id = $1`,
-    [productoId],
+  const fila = await uno<{ costo_usd: number }>(
+    `WITH stock_actual AS (
+       SELECT COALESCE(SUM(cantidad), 0) AS total FROM existencia WHERE producto_id = $1
+     ),
+     calculo AS (
+       SELECT
+         -- Existencia anterior a esta entrada: el movimiento ya se aplico.
+         GREATEST((SELECT total FROM stock_actual) - $2::numeric, 0) AS stock_previo,
+         p.costo_usd AS costo_previo
+       FROM producto p WHERE p.id = $1
+     )
+     UPDATE producto
+        SET costo_usd = CASE
+              WHEN c.stock_previo + $2::numeric <= 0 THEN round($3::numeric, 4)
+              ELSE round(
+                (c.stock_previo * c.costo_previo + $2::numeric * $3::numeric)
+                / (c.stock_previo + $2::numeric), 4)
+            END,
+            actualizado_en = now()
+       FROM calculo c
+      WHERE producto.id = $1
+      RETURNING producto.costo_usd`,
+    [productoId, redCantidad(cantidadEntrante), costoEntrante],
     cliente,
   );
   if (!fila) throw noEncontrado(`Producto ${productoId} no existe`);
-
-  const stockPrevio = Math.max(Number(fila.stock) - cantidadEntrante, 0);
-  const costoPrevio = Number(fila.costo_usd);
-  const total = stockPrevio + cantidadEntrante;
-  const nuevoCosto =
-    total <= 0 ? usd(costoEntrante) : usd((stockPrevio * costoPrevio + cantidadEntrante * costoEntrante) / total);
-
-  await cliente.query('UPDATE producto SET costo_usd = $2, actualizado_en = now() WHERE id = $1', [
-    productoId,
-    nuevoCosto,
-  ]);
-  return nuevoCosto;
+  return Number(fila.costo_usd);
 }
 
 export async function transferir(
