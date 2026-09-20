@@ -120,6 +120,9 @@ Todo se controla por variables de entorno en `.env`. Las que importan:
 | `TASA_INICIAL` | Tasa Bs/USD con la que arranca el sistema. |
 | `TASA_FUENTE` | `manual` (sin salida a internet) o `http` para consultar `TASA_FUENTE_URL` a diario. |
 | `ASISTENTE_MODO` | `local` o `anthropic`. |
+| `DATABASE_SSL` | `disable`, `require` o `no-verify`. Usa `no-verify` con bases gestionadas como Supabase o Neon. |
+| `DB_POOL_MAX` | Conexiones del pool. Bájalo a `3` en despliegues serverless. |
+| `SEED_DIAS` | Días de historia que genera el seed de ejemplo. |
 | `ANTHROPIC_API_KEY` | Solo si usas el modo `anthropic`. |
 
 ---
@@ -166,6 +169,29 @@ restaurar:
 gunzip -c deploy/respaldos/fina-AAAAMMDD-HHMMSS.sql.gz \
   | docker compose exec -T db psql -U fina -d fina
 ```
+
+---
+
+## Desplegar en Vercel
+
+El repositorio trae `vercel.json` y `api/index.mjs`, que exponen la misma API
+Express como función serverless mientras Vercel sirve el SPA desde su CDN.
+Necesitas una base PostgreSQL alcanzable, por ejemplo Supabase, y estas
+variables en el proyecto de Vercel:
+
+| Variable | Valor |
+|---|---|
+| `DATABASE_URL` | Cadena del *pooler* en modo transacción de tu proveedor |
+| `DATABASE_SSL` | `no-verify` |
+| `DB_POOL_MAX` | `3` |
+| `JWT_SECRET` | 64 caracteres aleatorios |
+| `SEED_DIAS` | `20`, para que el build no tarde |
+
+El comando de build (`npm run vercel-build`) compila la API, aplica las
+migraciones, carga el seed si la base está vacía y compila el frontend.
+
+Ten presente que un despliegue en Vercel deja la aplicación en internet. Para
+tus datos reales, usa el despliegue con Docker descrito arriba.
 
 ---
 

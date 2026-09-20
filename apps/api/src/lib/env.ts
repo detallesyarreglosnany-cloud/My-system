@@ -24,6 +24,13 @@ export const env = {
   esProduccion,
   puerto: leerNumero('PORT', 4000),
   databaseUrl: leer('DATABASE_URL', 'postgres://postgres@127.0.0.1:5432/fina'),
+  /**
+   * disable  -> sin TLS (Postgres en la misma red de Docker)
+   * require  -> TLS validando el certificado
+   * no-verify-> TLS sin validar la cadena (proveedores gestionados con CA propia)
+   */
+  databaseSsl: leer('DATABASE_SSL', 'disable') as 'disable' | 'require' | 'no-verify',
+  poolMax: leerNumero('DB_POOL_MAX', 10),
   jwtSecret: (() => {
     const s = process.env.JWT_SECRET ?? '';
     if (esProduccion && s.length < 32) {
@@ -46,6 +53,8 @@ export const env = {
     rif: leer('ORG_RIF', 'J-000000000'),
     monedaBase: leer('ORG_MONEDA_BASE', 'USD'),
   },
+  /** Dias de historia que genera el seed de ejemplo. */
+  seedDias: leerNumero('SEED_DIAS', 45),
   admin: {
     email: leer('ADMIN_EMAIL', 'admin@minegocio.com'),
     password: leer('ADMIN_PASSWORD', 'Admin.12345'),

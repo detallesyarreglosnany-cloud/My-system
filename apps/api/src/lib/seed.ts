@@ -191,7 +191,8 @@ async function sembrar() {
   const clientes = await pool.query<{ id: number }>('SELECT id FROM cliente ORDER BY id');
 
   let creadas = 0;
-  for (let dia = 44; dia >= 0; dia--) {
+  const dias = Math.max(env.seedDias, 1);
+  for (let dia = dias - 1; dia >= 0; dia--) {
     const facturasDelDia = 2 + Math.floor(azar() * 5);
     for (let f = 0; f < facturasDelDia; f++) {
       const nLineas = 1 + Math.floor(azar() * 4);
@@ -223,15 +224,16 @@ async function sembrar() {
   }
 
   // Desplaza las fechas hacia atras para que el historico no quede todo hoy.
-  await pool.query(`
-    WITH numeradas AS (
-      SELECT id, row_number() OVER (ORDER BY id) AS n, COUNT(*) OVER () AS total FROM venta
-    )
-    UPDATE venta v
-       SET fecha = now() - ((44 - floor((n - 1) * 45.0 / GREATEST(total,1)))::int || ' days')::interval
-                         + (n % 9) * interval '47 minutes'
-      FROM numeradas WHERE numeradas.id = v.id
-  `);
+  await pool.query(
+    `WITH numeradas AS (
+       SELECT id, row_number() OVER (ORDER BY id) AS n, COUNT(*) OVER () AS total FROM venta
+     )
+     UPDATE venta v
+        SET fecha = now() - (((($1::int - 1) - floor((n - 1) * $1::numeric / GREATEST(total,1))))::int || ' days')::interval
+                          + (n % 9) * interval '47 minutes'
+       FROM numeradas WHERE numeradas.id = v.id`,
+    [dias],
+  );
   await pool.query(`UPDATE pago p SET fecha = v.fecha FROM venta v WHERE v.id = p.venta_id`);
   await pool.query(`
     UPDATE venta SET vence_el = (fecha + (dias_credito || ' days')::interval)::date

@@ -40,8 +40,17 @@ export function crearApp() {
 
   app.get('/api/salud', async (_req, res) => {
     try {
-      await pool.query('SELECT 1');
-      res.json({ ok: true, servicio: 'fina-api', version: '1.0.0', entorno: env.nodeEnv });
+      const { rows } = await pool.query<{ esquema: string; version: string }>(
+        'SELECT current_schema() AS esquema, version() AS version',
+      );
+      res.json({
+        ok: true,
+        servicio: 'fina-api',
+        version: '1.0.0',
+        entorno: env.nodeEnv,
+        esquema: rows[0]?.esquema ?? null,
+        postgres: (rows[0]?.version ?? '').split(' ').slice(0, 2).join(' '),
+      });
     } catch (error) {
       res.status(503).json({ ok: false, error: 'base de datos no disponible' });
     }

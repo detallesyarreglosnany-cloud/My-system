@@ -7,11 +7,19 @@ import { env } from './env.js';
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, (v: string) => Number(v));
 pg.types.setTypeParser(pg.types.builtins.INT8, (v: string) => Number(v));
 
+function configuracionTls(): pg.PoolConfig['ssl'] {
+  if (env.databaseSsl === 'require') return { rejectUnauthorized: true };
+  if (env.databaseSsl === 'no-verify') return { rejectUnauthorized: false };
+  return undefined;
+}
+
 export const pool = new pg.Pool({
   connectionString: env.databaseUrl,
-  max: 10,
+  ssl: configuracionTls(),
+  // En serverless conviene un pool pequeño: hay muchas instancias efimeras.
+  max: env.poolMax,
   idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 10_000,
+  connectionTimeoutMillis: 15_000,
 });
 
 pool.on('error', (err) => {
