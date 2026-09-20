@@ -1,0 +1,64 @@
+# Levanta todo el sistema:  docker compose up -d
+# La primera vez, carga los datos base:  docker compose run --rm app npm run seed
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fina}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en el archivo .env}
+      POSTGRES_DB: ${POSTGRES_DB:-fina}
+      # Acelera el arranque y hace el ordenamiento predecible.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - datos-postgres:/var/lib/postgresql/data
+      - ./deploy/respaldos:/respaldos
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fina} -d ${POSTGRES_DB:-fina}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # Sin `ports`: la base solo es alcanzable desde la red interna de Compose.
+    networks: [interna]
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER:-fina}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-fina}
+      JWT_SECRET: ${JWT_SECRET:?define JWT_SECRET en el archivo .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-12h}
+      CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      IVA_TASA: ${IVA_TASA:-16}
+      IGTF_TASA: ${IGTF_TASA:-3}
+      TASA_FUENTE: ${TASA_FUENTE:-manual}
+      TASA_FUENTE_URL: ${TASA_FUENTE_URL:-}
+      TASA_INICIAL: ${TASA_INICIAL:-36.50}
+      ASISTENTE_MODO: ${ASISTENTE_MODO:-local}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-5}
+      ORG_NOMBRE: ${ORG_NOMBRE:-Mi Negocio, C.A.}
+      ORG_RIF: ${ORG_RIF:-J-000000000}
+      ORG_MONEDA_BASE: ${ORG_MONEDA_BASE:-USD}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@minegocio.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin.12345}
+      ADMIN_NOMBRE: ${ADMIN_NOMBRE:-Administrador}
+    ports:
+      - "${WEB_PORT:-8080}:4000"
+    networks: [interna]
+
+volumes:
+  datos-postgres:
+
+networks:
+  interna:
+    driver: bridge

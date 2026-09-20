@@ -1,0 +1,12 @@
+node_modules
+**/node_modules
+**/dist
+apps/api/publico
+.git
+.github
+*.log
+.env
+.env.*
+!.env.example
+docs
+assets

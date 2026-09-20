@@ -1,0 +1,16 @@
+{
+  "name": "fina-local",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema administrativo self-hosted para PyMEs (ventas, inventario, cuentas, multimoneda Bs/USD)",
+  "workspaces": ["apps/api", "apps/web"],
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "npm run dev --workspace=apps/api & npm run dev --workspace=apps/web",
+    "build": "npm run build --workspace=apps/api && npm run build --workspace=apps/web",
+    "migrate": "npm run migrate --workspace=apps/api",
+    "seed": "npm run seed --workspace=apps/api",
+    "start": "npm run start --workspace=apps/api",
+    "test": "npm run test --workspace=apps/api"
+  }
+}
